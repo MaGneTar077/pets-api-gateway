@@ -1,0 +1,68 @@
+spring:
+  application:
+    name: api-gateway
+
+  config:
+    import: optional:file:.env[.properties]
+
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        # ── USER SERVICE ──────────────────────────────
+        - id: user-register
+          uri: lb://user-service
+          predicates:
+            - Path=/api/user/register
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        - id: user-auth
+          uri: lb://user-service
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/user/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        # ── PET SERVICE ───────────────────────────────
+        - id: pet-service
+          uri: lb://pet-service
+          predicates:
+            - Path=/api/pets/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        # ── VETERINARY SERVICE ────────────────────────
+        - id: veterinary-service
+          uri: lb://veterinary-service
+          predicates:
+            - Path=/api/veterinary/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+server:
+  port: ${SERVER_PORT:8090}
+
+jwt:
+  secret: ${JWT_SECRET}
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
