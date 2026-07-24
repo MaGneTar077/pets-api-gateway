@@ -7,64 +7,70 @@ spring:
 
   cloud:
     gateway:
-      discovery:
-        locator:
-          enabled: true
-          lower-case-service-id: true
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowedOrigins:
-              - "http://localhost:8100"
-            allowedMethods:
-              - GET
-              - POST
-              - PUT
-              - PATCH
-              - DELETE
-              - OPTIONS
-            allowedHeaders:
-              - "*"
-            allowCredentials: true
-            maxAge: 3600
-      routes:
-        # ── USER SERVICE ──────────────────────────────
-        - id: user-register
-          uri: lb://user-service
-          predicates:
-            - Path=/api/user/register
-          filters:
-            - RewritePath=/api/(?<segment>.*), /${segment}
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: true
+              lower-case-service-id: true
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOrigins:
+                  - "http://localhost:8100"
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - PATCH
+                  - DELETE
+                  - OPTIONS
+                allowedHeaders:
+                  - "*"
+                allowCredentials: true
+                maxAge: 3600
+          routes:
 
-        - id: user-auth
-          uri: lb://user-service
-          predicates:
-            - Path=/api/auth/**
-          filters:
-            - RewritePath=/api/(?<segment>.*), /${segment}
+            - id: user-register
+              uri: lb://user-service
+              predicates:
+                - Path=/api/user/register
+              filters:
+                - RewritePath=/api/(?<segment>.*), /${segment}
 
-        - id: user-service
-          uri: lb://user-service
-          predicates:
-            - Path=/api/user/**
-          filters:
-            - RewritePath=/api/(?<segment>.*), /${segment}
+            - id: user-auth
+              uri: lb://user-service
+              predicates:
+                - Path=/api/auth/**
+              filters:
+                - RewritePath=/api/(?<segment>.*), /${segment}
 
-        # ── PET SERVICE ───────────────────────────────
-        - id: pet-service
-          uri: lb://pet-service
-          predicates:
-            - Path=/api/pets/**
-          filters:
-            - RewritePath=/api/(?<segment>.*), /${segment}
 
-        # ── VETERINARY SERVICE ────────────────────────
-        - id: veterinary-service
-          uri: lb://veterinary-service
-          predicates:
-            - Path=/api/veterinary/**
-          filters:
-            - RewritePath=/api/(?<segment>.*), /${segment}
+            - id: user-service
+              uri: lb://user-service
+              predicates:
+                - Path=/api/user/**
+              filters:
+                - RewritePath=/api/(?<segment>.*), /${segment}
+                - name: JwtAuthFilter
+
+
+            - id: pet-service
+              uri: lb://pet-service
+              predicates:
+                - Path=/api/pets/**
+              filters:
+                - RewritePath=/api/(?<segment>.*), /${segment}
+                - name: JwtAuthFilter
+
+
+            - id: veterinary-service
+              uri: lb://veterinary-service
+              predicates:
+                - Path=/api/veterinary/**
+              filters:
+                - RewritePath=/api/(?<segment>.*), /${segment}
+                - name: JwtAuthFilter
 
 eureka:
   client:
