@@ -5,6 +5,11 @@ spring:
   config:
     import: optional:file:.env[.properties]
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
   cloud:
     gateway:
       server:
@@ -30,13 +35,19 @@ spring:
                 allowCredentials: true
                 maxAge: 3600
           routes:
-
+            # ── USER SERVICE — rutas públicas ─────────
             - id: user-register
               uri: lb://user-service
               predicates:
                 - Path=/api/user/register
               filters:
                 - RewritePath=/api/(?<segment>.*), /${segment}
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 5
+                    redis-rate-limiter.burstCapacity: 10
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
 
             - id: user-auth
               uri: lb://user-service
@@ -44,8 +55,14 @@ spring:
                 - Path=/api/auth/**
               filters:
                 - RewritePath=/api/(?<segment>.*), /${segment}
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 5
+                    redis-rate-limiter.burstCapacity: 10
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
 
-
+            # ── USER SERVICE — rutas protegidas ───────
             - id: user-service
               uri: lb://user-service
               predicates:
@@ -53,8 +70,14 @@ spring:
               filters:
                 - RewritePath=/api/(?<segment>.*), /${segment}
                 - name: JwtAuthFilter
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 20
+                    redis-rate-limiter.burstCapacity: 40
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
 
-
+            # ── PET SERVICE — rutas protegidas ────────
             - id: pet-service
               uri: lb://pet-service
               predicates:
@@ -62,8 +85,14 @@ spring:
               filters:
                 - RewritePath=/api/(?<segment>.*), /${segment}
                 - name: JwtAuthFilter
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 20
+                    redis-rate-limiter.burstCapacity: 40
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
 
-
+            # ── VETERINARY SERVICE — rutas protegidas ─
             - id: veterinary-service
               uri: lb://veterinary-service
               predicates:
@@ -71,6 +100,12 @@ spring:
               filters:
                 - RewritePath=/api/(?<segment>.*), /${segment}
                 - name: JwtAuthFilter
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 20
+                    redis-rate-limiter.burstCapacity: 40
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
 
 eureka:
   client:
@@ -88,3 +123,5 @@ jwt:
 logging:
   level:
     org.springframework.cloud.gateway: DEBUG
+    org.springframework.data.redis: DEBUG
+    io.lettuce: DEBUG
