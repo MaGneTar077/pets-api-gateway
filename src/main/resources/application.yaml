@@ -127,7 +127,27 @@ spring:
                     name: veterinary-service
                     fallbackUri: forward:/fallback/veterinary
 
-            # ── FALLBACK ──────────────────────────────
+            # ── 🆕 MEDICAL PET SERVICE — rutas protegidas ─
+            - id: medical-pet-service
+              uri: lb://medical-pet-service
+              predicates:
+                # 👇 ACTUALIZADO: Captura absolutamente todas las sub-rutas de tu servicio de Node.js
+                - Path=/api/visits/**, /api/weight/**, /api/treatments/**, /api/lab/**, /api/medications/**, /api/surgery/**
+              filters:
+                - RewritePath=/api/(?<segment>.*), /${segment} # Convierte /api/medications/xyz en /medications/xyz
+                - name: JwtAuthFilter
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 20
+                    redis-rate-limiter.burstCapacity: 40
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
+                - name: CircuitBreaker
+                  args:
+                    name: medical-pet-service
+                    fallbackUri: forward:/fallback/medical
+
+                # ── FALLBACK ──────────────────────────────
             - id: fallback-user
               uri: http://localhost:8090
               predicates:
@@ -192,3 +212,11 @@ jwt:
 logging:
   level:
     org.springframework.cloud.gateway: INFO
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
