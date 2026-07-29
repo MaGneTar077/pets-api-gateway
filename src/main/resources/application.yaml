@@ -48,6 +48,10 @@ spring:
                     redis-rate-limiter.burstCapacity: 10
                     redis-rate-limiter.requestedTokens: 1
                     key-resolver: "#{@userKeyResolver}"
+                - name: CircuitBreaker
+                  args:
+                    name: user-service
+                    fallbackUri: forward:/fallback/user
 
             - id: user-auth
               uri: lb://user-service
@@ -61,6 +65,10 @@ spring:
                     redis-rate-limiter.burstCapacity: 10
                     redis-rate-limiter.requestedTokens: 1
                     key-resolver: "#{@userKeyResolver}"
+                - name: CircuitBreaker
+                  args:
+                    name: user-service
+                    fallbackUri: forward:/fallback/user
 
             # ── USER SERVICE — rutas protegidas ───────
             - id: user-service
@@ -76,6 +84,10 @@ spring:
                     redis-rate-limiter.burstCapacity: 40
                     redis-rate-limiter.requestedTokens: 1
                     key-resolver: "#{@userKeyResolver}"
+                - name: CircuitBreaker
+                  args:
+                    name: user-service
+                    fallbackUri: forward:/fallback/user
 
             # ── PET SERVICE — rutas protegidas ────────
             - id: pet-service
@@ -91,6 +103,10 @@ spring:
                     redis-rate-limiter.burstCapacity: 40
                     redis-rate-limiter.requestedTokens: 1
                     key-resolver: "#{@userKeyResolver}"
+                - name: CircuitBreaker
+                  args:
+                    name: pet-service
+                    fallbackUri: forward:/fallback/pet
 
             # ── VETERINARY SERVICE — rutas protegidas ─
             - id: veterinary-service
@@ -106,6 +122,59 @@ spring:
                     redis-rate-limiter.burstCapacity: 40
                     redis-rate-limiter.requestedTokens: 1
                     key-resolver: "#{@userKeyResolver}"
+                - name: CircuitBreaker
+                  args:
+                    name: veterinary-service
+                    fallbackUri: forward:/fallback/veterinary
+
+            # ── FALLBACK ──────────────────────────────
+            - id: fallback-user
+              uri: http://localhost:8090
+              predicates:
+                - Path=/fallback/user
+              filters: []
+
+            - id: fallback-pet
+              uri: http://localhost:8090
+              predicates:
+                - Path=/fallback/pet
+              filters: []
+
+            - id: fallback-veterinary
+              uri: http://localhost:8090
+              predicates:
+                - Path=/fallback/veterinary
+              filters: []
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      user-service:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+      pet-service:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+      veterinary-service:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+  timelimiter:
+    instances:
+      user-service:
+        timeout-duration: 5s
+      pet-service:
+        timeout-duration: 5s
+      veterinary-service:
+        timeout-duration: 5s
 
 eureka:
   client:
@@ -122,6 +191,4 @@ jwt:
 
 logging:
   level:
-    org.springframework.cloud.gateway: DEBUG
-    org.springframework.data.redis: DEBUG
-    io.lettuce: DEBUG
+    org.springframework.cloud.gateway: INFO
