@@ -131,10 +131,9 @@ spring:
             - id: medical-pet-service
               uri: lb://medical-pet-service
               predicates:
-                # 👇 ACTUALIZADO: Captura absolutamente todas las sub-rutas de tu servicio de Node.js
                 - Path=/api/visits/**, /api/weight/**, /api/treatments/**, /api/lab/**, /api/medications/**, /api/surgery/**
               filters:
-                - RewritePath=/api/(?<segment>.*), /${segment} # Convierte /api/medications/xyz en /medications/xyz
+                - RewritePath=/api/(?<segment>.*), /${segment}
                 - name: JwtAuthFilter
                 - name: RequestRateLimiter
                   args:
@@ -214,6 +213,13 @@ logging:
     org.springframework.cloud.gateway: INFO
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
+  endpoint:
+    health:
+      show-details: always
   tracing:
     sampling:
       probability: 1.0
