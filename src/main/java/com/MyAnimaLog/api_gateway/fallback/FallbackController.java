@@ -38,4 +38,13 @@ public class FallbackController {
                 "message", "Veterinary service is currently unavailable. Please try again later."
         ));
     }
+
+    @GetMapping("/medical")
+    public ResponseEntity<Map<String, Object>> medicalFallback() {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
+                "status", 503,
+                "error", "Service Unavailable",
+                "message", "Medical pet service is currently unavailable. Please try again later."
+        ));
+    }
 }

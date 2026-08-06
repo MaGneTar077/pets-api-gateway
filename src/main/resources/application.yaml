@@ -165,6 +165,12 @@ spring:
                 - Path=/fallback/veterinary
               filters: []
 
+            - id: fallback-medical
+              uri: http://localhost:8090
+              predicates:
+                - Path=/fallback/medical
+              filters: [ ]
+
 resilience4j:
   circuitbreaker:
     instances:
@@ -186,6 +192,12 @@ resilience4j:
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 3
         automatic-transition-from-open-to-half-open-enabled: true
+      medical-pet-service:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
   timelimiter:
     instances:
       user-service:
@@ -193,6 +205,8 @@ resilience4j:
       pet-service:
         timeout-duration: 5s
       veterinary-service:
+        timeout-duration: 5s
+      medical-pet-service:
         timeout-duration: 5s
 
 eureka:
