@@ -23,6 +23,7 @@
 		<netty.version>4.1.136.Final</netty.version>
 		<bouncycastle.version>1.85</bouncycastle.version>
 		<spring-data-commons.version>3.5.12</spring-data-commons.version>
+		<bcprov.version>1.85</bcprov.version>
 	</properties>
 
 	<dependencies>
@@ -150,7 +151,13 @@
 			<dependency>
 				<groupId>org.springframework.data</groupId>
 				<artifactId>spring-data-commons</artifactId>
-				<version>${spring-data-commons.version}</version>
+				<version>3.5.12</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.bouncycastle</groupId>
+				<artifactId>bcprov-jdk18on</artifactId>
+				<version>1.85</version>
 			</dependency>
 
 		</dependencies>
