@@ -9,20 +9,19 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS_SSL:true}
 
   cloud:
     gateway:
       server:
         webflux:
-          discovery:
-            locator:
-              enabled: true
-              lower-case-service-id: true
           globalcors:
             cors-configurations:
               '[/**]':
                 allowedOrigins:
-                  - "http://localhost:8100"
+                  - "${FRONTEND_URL:http://localhost:8100}"
                 allowedMethods:
                   - GET
                   - POST
@@ -37,7 +36,7 @@ spring:
           routes:
             # ── USER SERVICE — rutas públicas ─────────
             - id: user-register
-              uri: lb://user-service
+              uri: ${USER_SERVICE_URL:http://localhost:8080}
               predicates:
                 - Path=/api/user/register
               filters:
@@ -54,7 +53,7 @@ spring:
                     fallbackUri: forward:/fallback/user
 
             - id: user-auth
-              uri: lb://user-service
+              uri: ${USER_SERVICE_URL:http://localhost:8080}
               predicates:
                 - Path=/api/auth/**
               filters:
@@ -72,7 +71,7 @@ spring:
 
             # ── USER SERVICE — rutas protegidas ───────
             - id: user-service
-              uri: lb://user-service
+              uri: ${USER_SERVICE_URL:http://localhost:8080}
               predicates:
                 - Path=/api/user/**
               filters:
@@ -91,7 +90,7 @@ spring:
 
             # ── PET SERVICE — rutas protegidas ────────
             - id: pet-service
-              uri: lb://pet-service
+              uri: ${PET_SERVICE_URL:http://localhost:8081}
               predicates:
                 - Path=/api/pets/**
               filters:
@@ -110,7 +109,7 @@ spring:
 
             # ── VETERINARY SERVICE — rutas protegidas ─
             - id: veterinary-service
-              uri: lb://veterinary-service
+              uri: ${VETERINARY_SERVICE_URL:http://localhost:8082}
               predicates:
                 - Path=/api/veterinary/**
               filters:
@@ -127,9 +126,9 @@ spring:
                     name: veterinary-service
                     fallbackUri: forward:/fallback/veterinary
 
-            # ── 🆕 MEDICAL PET SERVICE — rutas protegidas ─
+            # ── MEDICAL PET SERVICE — rutas protegidas ─
             - id: medical-pet-service
-              uri: lb://medical-pet-service
+              uri: ${MEDICAL_SERVICE_URL:http://localhost:3000}
               predicates:
                 - Path=/api/visits/**, /api/weight/**, /api/treatments/**, /api/lab/**, /api/medications/**, /api/surgery/**
               filters:
@@ -146,30 +145,30 @@ spring:
                     name: medical-pet-service
                     fallbackUri: forward:/fallback/medical
 
-                # ── FALLBACK ──────────────────────────────
+            # ── FALLBACK ──────────────────────────────
             - id: fallback-user
-              uri: http://localhost:8090
+              uri: http://localhost:${SERVER_PORT:8090}
               predicates:
                 - Path=/fallback/user
               filters: []
 
             - id: fallback-pet
-              uri: http://localhost:8090
+              uri: http://localhost:${SERVER_PORT:8090}
               predicates:
                 - Path=/fallback/pet
               filters: []
 
             - id: fallback-veterinary
-              uri: http://localhost:8090
+              uri: http://localhost:${SERVER_PORT:8090}
               predicates:
                 - Path=/fallback/veterinary
               filters: []
 
             - id: fallback-medical
-              uri: http://localhost:8090
+              uri: http://localhost:${SERVER_PORT:8090}
               predicates:
                 - Path=/fallback/medical
-              filters: [ ]
+              filters: []
 
 resilience4j:
   circuitbreaker:
@@ -209,13 +208,6 @@ resilience4j:
       medical-pet-service:
         timeout-duration: 5s
 
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-  instance:
-    prefer-ip-address: true
-
 server:
   port: ${SERVER_PORT:8090}
 
@@ -230,13 +222,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, metrics
+        include: health, info
   endpoint:
     health:
       show-details: never
-  tracing:
-    sampling:
-      probability: 1.0
-  zipkin:
-    tracing:
-      endpoint: http://localhost:9411/api/v2/spans
