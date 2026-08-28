@@ -164,27 +164,33 @@ spring:
 
             # ── FALLBACK ──────────────────────────────
             - id: fallback-user
-              uri: http://localhost:${SERVER_PORT:8090}
+              uri: http://localhost:${PORT:8090}
               predicates:
                 - Path=/fallback/user
               filters: []
 
             - id: fallback-pet
-              uri: http://localhost:${SERVER_PORT:8090}
+              uri: http://localhost:${PORT:8090}
               predicates:
                 - Path=/fallback/pet
               filters: []
 
             - id: fallback-veterinary
-              uri: http://localhost:${SERVER_PORT:8090}
+              uri: http://localhost:${PORT:8090}
               predicates:
                 - Path=/fallback/veterinary
               filters: []
 
             - id: fallback-medical
-              uri: http://localhost:${SERVER_PORT:8090}
+              uri: http://localhost:${PORT:8090}
               predicates:
                 - Path=/fallback/medical
+              filters: []
+
+            - id: fallback-calendar
+              uri: http://localhost:${PORT:8090}
+              predicates:
+                - Path=/fallback/calendar
               filters: []
 
 resilience4j:
@@ -234,7 +240,7 @@ resilience4j:
         timeout-duration: 5s
 
 server:
-  port: ${SERVER_PORT:8090}
+  port: ${PORT:8090}
 
 jwt:
   secret: ${JWT_SECRET}
