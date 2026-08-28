@@ -47,4 +47,13 @@ public class FallbackController {
                 "message", "Medical pet service is currently unavailable. Please try again later."
         ));
     }
+
+    @GetMapping("/calendar")
+    public ResponseEntity<Map<String, Object>> calendarFallback() {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
+                "status", 503,
+                "error", "Service Unavailable",
+                "message", "Calendar service is currently unavailable. Please try again later."
+        ));
+    }
 }

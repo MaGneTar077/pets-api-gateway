@@ -132,7 +132,6 @@ spring:
               predicates:
                 - Path=/api/visits/**, /api/weight/**, /api/treatments/**, /api/lab/**, /api/medications/**, /api/surgery/**
               filters:
-                - RewritePath=/api/(?<segment>.*), /${segment}
                 - name: JwtAuthFilter
                 - name: RequestRateLimiter
                   args:
@@ -144,6 +143,24 @@ spring:
                   args:
                     name: medical-pet-service
                     fallbackUri: forward:/fallback/medical
+
+            # ── CALENDAR SERVICE — rutas protegidas ───
+            - id: calendar-service
+              uri: ${CALENDAR_SERVICE_URL:http://localhost:3001}
+              predicates:
+                - Path=/api/calendar-events/**
+              filters:
+                - name: JwtAuthFilter
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 20
+                    redis-rate-limiter.burstCapacity: 40
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
+                - name: CircuitBreaker
+                  args:
+                    name: calendar-service
+                    fallbackUri: forward:/fallback/calendar
 
             # ── FALLBACK ──────────────────────────────
             - id: fallback-user
@@ -197,6 +214,12 @@ resilience4j:
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 3
         automatic-transition-from-open-to-half-open-enabled: true
+      calendar-service:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
   timelimiter:
     instances:
       user-service:
@@ -206,6 +229,8 @@ resilience4j:
       veterinary-service:
         timeout-duration: 5s
       medical-pet-service:
+        timeout-duration: 5s
+      calendar-service:
         timeout-duration: 5s
 
 server:
