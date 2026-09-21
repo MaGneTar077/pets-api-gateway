@@ -162,6 +162,24 @@ spring:
                     name: calendar-service
                     fallbackUri: forward:/fallback/calendar
 
+            # ── NOTIFICATION SERVICE — rutas protegidas ─
+            - id: notification-service
+              uri: ${NOTIFICATION_SERVICE_URL:http://localhost:3002}
+              predicates:
+                - Path=/api/notifications/**
+              filters:
+                - name: JwtAuthFilter
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 20
+                    redis-rate-limiter.burstCapacity: 40
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
+                - name: CircuitBreaker
+                  args:
+                    name: notification-service
+                    fallbackUri: forward:/fallback/notification
+
             # ── FALLBACK ──────────────────────────────
             - id: fallback-user
               uri: http://localhost:${PORT:8090}
@@ -192,6 +210,12 @@ spring:
               predicates:
                 - Path=/fallback/calendar
               filters: []
+
+            - id: fallback-notification
+              uri: http://localhost:${PORT:8090}
+              predicates:
+                - Path=/fallback/notification
+              filters: [ ]
 
 resilience4j:
   circuitbreaker:
@@ -226,6 +250,12 @@ resilience4j:
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 3
         automatic-transition-from-open-to-half-open-enabled: true
+      notification-service:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
   timelimiter:
     instances:
       user-service:
@@ -237,6 +267,8 @@ resilience4j:
       medical-pet-service:
         timeout-duration: 5s
       calendar-service:
+        timeout-duration: 5s
+      notification-service:
         timeout-duration: 5s
 
 server:

@@ -2,58 +2,53 @@ package com.MyAnimaLog.api_gateway.fallback;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/fallback")
 public class FallbackController {
 
-    @GetMapping("/user")
+    @RequestMapping("/user")
     public ResponseEntity<Map<String, Object>> userFallback() {
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
-                "status", 503,
-                "error", "Service Unavailable",
-                "message", "User service is currently unavailable. Please try again later."
-        ));
+        return buildFallback("User service");
     }
 
-    @GetMapping("/pet")
+    @RequestMapping("/pet")
     public ResponseEntity<Map<String, Object>> petFallback() {
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
-                "status", 503,
-                "error", "Service Unavailable",
-                "message", "Pet service is currently unavailable. Please try again later."
-        ));
+        return buildFallback("Pet service");
     }
 
-    @GetMapping("/veterinary")
+    @RequestMapping("/veterinary")
     public ResponseEntity<Map<String, Object>> veterinaryFallback() {
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
-                "status", 503,
-                "error", "Service Unavailable",
-                "message", "Veterinary service is currently unavailable. Please try again later."
-        ));
+        return buildFallback("Veterinary service");
     }
 
-    @GetMapping("/medical")
+    @RequestMapping("/medical")
     public ResponseEntity<Map<String, Object>> medicalFallback() {
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
-                "status", 503,
-                "error", "Service Unavailable",
-                "message", "Medical pet service is currently unavailable. Please try again later."
-        ));
+        return buildFallback("Medical pet service");
     }
 
-    @GetMapping("/calendar")
+    @RequestMapping("/calendar")
     public ResponseEntity<Map<String, Object>> calendarFallback() {
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
-                "status", 503,
-                "error", "Service Unavailable",
-                "message", "Calendar service is currently unavailable. Please try again later."
-        ));
+        return buildFallback("Calendar service");
+    }
+
+    @RequestMapping("/notification")
+    public ResponseEntity<Map<String, Object>> notificationFallback() {
+        return buildFallback("Notification service");
+    }
+
+    private ResponseEntity<Map<String, Object>> buildFallback(String serviceName) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        body.put("error", HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase());
+        body.put("message", serviceName + " is currently unavailable. Please try again later.");
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
     }
 }
