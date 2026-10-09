@@ -1,8 +1,6 @@
 package com.MyAnimaLog.api_gateway.filter;
 
 import com.MyAnimaLog.api_gateway.util.JwtUtil;
-import io.jsonwebtoken.Claims;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
@@ -18,7 +16,7 @@ import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
-import java.util.Optional;
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -48,38 +46,51 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
 
             String token = authHeader.substring(BEARER_PREFIX.length()).trim();
 
-            Optional<Claims> claimsOpt = jwtUtil.parseClaims(token);
-            if (claimsOpt.isEmpty()) {
-                log.warn("Invalid or expired token for path: {}", path);
-                return onError(exchange, HttpStatus.UNAUTHORIZED, "Invalid or expired token");
-            }
+            return jwtUtil.validate(token)
+                    .flatMap(claims -> {
+                        log.debug("JWT claim keys: {}", claims.keySet());
 
-            Claims claims = claimsOpt.get();
-            log.debug("JWT claim keys: {}", claims.keySet());
+                        String userId = resolveUserId(claims);
+                        String email = resolveEmail(claims);
 
-            String userId = resolveUserId(claims);
-            String email = resolveEmail(claims);
+                        if (!StringUtils.hasText(userId) || !StringUtils.hasText(email)) {
+                            log.warn("Token without user identity for path: {}. Claims: {}", path, claims.keySet());
+                            return onError(exchange, HttpStatus.UNAUTHORIZED, "Token does not contain user identity");
+                        }
 
-            if (!StringUtils.hasText(userId) || !StringUtils.hasText(email)) {
-                log.warn("Token without user identity for path: {}. Claims: {}", path, claims.keySet());
-                return onError(exchange, HttpStatus.UNAUTHORIZED, "Token does not contain user identity");
-            }
+                        ServerHttpRequest mutatedRequest = request.mutate()
+                                .headers(headers -> {
+                                    headers.remove(IdentityHeaders.USER_ID);
+                                    headers.remove(IdentityHeaders.USER_EMAIL);
+                                    headers.set(IdentityHeaders.USER_ID, userId);
+                                    headers.set(IdentityHeaders.USER_EMAIL, email);
+                                })
+                                .build();
 
-            ServerHttpRequest mutatedRequest = request.mutate()
-                    .headers(headers -> {
-                        headers.remove(IdentityHeaders.USER_ID);
-                        headers.remove(IdentityHeaders.USER_EMAIL);
-                        headers.set(IdentityHeaders.USER_ID, userId);
-                        headers.set(IdentityHeaders.USER_EMAIL, email);
+                        log.debug("Authenticated user {} for path {}", userId, path);
+                        return chain.filter(exchange.mutate().request(mutatedRequest).build());
                     })
-                    .build();
-
-            log.debug("Authenticated user {} for path {}", userId, path);
-            return chain.filter(exchange.mutate().request(mutatedRequest).build());
+                    .onErrorResume(e -> {
+                        log.warn("Invalid or expired token for path: {}. Cause: {}", path, describe(e));
+                        return onError(exchange, HttpStatus.UNAUTHORIZED, "Invalid or expired token");
+                    });
         };
     }
 
-    private String resolveUserId(Claims claims) {
+    /** Describes an exception as "Type: message", appending the root cause if it's wrapped. Never logs the token. */
+    private String describe(Throwable e) {
+        Throwable root = e;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        String top = e.getClass().getName() + ": " + e.getMessage();
+        if (root == e) {
+            return top;
+        }
+        return top + " (root cause: " + root.getClass().getName() + ": " + root.getMessage() + ")";
+    }
+
+    private String resolveUserId(Map<String, Object> claims) {
         Object userId = claims.get("userId");
         if (userId == null) {
             userId = claims.get("id");
@@ -87,17 +98,17 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
         if (userId != null) {
             return userId.toString();
         }
-        String subject = claims.getSubject();
-        return (subject != null && !subject.contains("@")) ? subject : null;
+        Object subject = claims.get("sub");
+        return (subject != null && !subject.toString().contains("@")) ? subject.toString() : null;
     }
 
-    private String resolveEmail(Claims claims) {
+    private String resolveEmail(Map<String, Object> claims) {
         Object email = claims.get("email");
-        String value = email != null ? email.toString() : claims.getSubject();
-        if (value == null || !value.contains("@")) {
+        Object value = email != null ? email : claims.get("sub");
+        if (value == null || !value.toString().contains("@")) {
             return null;
         }
-        return value.trim().toLowerCase(Locale.ROOT);
+        return value.toString().trim().toLowerCase(Locale.ROOT);
     }
 
     private Mono<Void> onError(ServerWebExchange exchange, HttpStatus status, String message) {
