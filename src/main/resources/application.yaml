@@ -17,22 +17,6 @@ spring:
     gateway:
       server:
         webflux:
-          globalcors:
-            cors-configurations:
-              '[/**]':
-                allowedOrigins:
-                  - "${FRONTEND_URL:http://localhost:8100}"
-                allowedMethods:
-                  - GET
-                  - POST
-                  - PUT
-                  - PATCH
-                  - DELETE
-                  - OPTIONS
-                allowedHeaders:
-                  - "*"
-                allowCredentials: true
-                maxAge: 3600
           routes:
             # ── USER SERVICE — rutas públicas ─────────
             - id: user-register
@@ -108,12 +92,14 @@ spring:
                     fallbackUri: forward:/fallback/pet
 
             # ── VETERINARY SERVICE — rutas protegidas ─
+            # Sin RewritePath: a diferencia de User/Pets, Veterinary expone sus
+            # controllers en /api/veterinary/** (con el prefijo /api incluido),
+            # así que el gateway debe reenviar la ruta tal cual.
             - id: veterinary-service
               uri: ${VETERINARY_SERVICE_URL:http://localhost:8082}
               predicates:
                 - Path=/api/veterinary/**
               filters:
-                - RewritePath=/api/(?<segment>.*), /${segment}
                 - name: JwtAuthFilter
                 - name: RequestRateLimiter
                   args:
@@ -234,6 +220,7 @@ resilience4j:
         automatic-transition-from-open-to-half-open-enabled: true
       veterinary-service:
         sliding-window-size: 10
+        minimum-number-of-calls: 5
         failure-rate-threshold: 50
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 3
@@ -263,7 +250,8 @@ resilience4j:
       pet-service:
         timeout-duration: 5s
       veterinary-service:
-        timeout-duration: 5s
+        # 30s: Cloud Run cold start (~20s) plus document uploads to Storage.
+        timeout-duration: 30s
       medical-pet-service:
         timeout-duration: 5s
       calendar-service:
@@ -273,6 +261,11 @@ resilience4j:
 
 server:
   port: ${PORT:8090}
+
+# Comma-separated list of allowed CORS origins. Falls back to the legacy
+# single-origin FRONTEND_URL if FRONTEND_URLS isn't set. See CorsConfig.
+frontend:
+  urls: ${FRONTEND_URLS:${FRONTEND_URL:http://localhost:8100,http://localhost:4200}}
 
 jwt:
   secret: ${JWT_SECRET:}
