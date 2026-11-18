@@ -32,6 +32,28 @@ class RouteConfigTest {
                 .isTrue();
     }
 
+    @Test
+    void iaRoute_forwardsPathUnchanged_noRewrite() {
+        Route route = findRoute("ia-service");
+        assertThat(hasRewritePathFilter(route))
+                .as("ia-service must NOT strip /api: the downstream service expects it")
+                .isFalse();
+    }
+
+    @Test
+    void noDedicatedRouteTargetsInternalPath() {
+        // Note: this only confirms there's no *dedicated* /internal route (as instructed).
+        // It does NOT prove /api/ai/internal/** is unreachable: Path=/api/ai/** structurally
+        // matches it too, since "**" spans sub-paths. Isolation for that path must come from
+        // ai-service's own internal-API-key check, not from gateway routing.
+        List<Route> routes = routeLocator.getRoutes().collectList().block();
+        boolean hasDedicatedInternalRoute = routes.stream()
+                .anyMatch(r -> r.getId().toLowerCase().contains("internal"));
+        assertThat(hasDedicatedInternalRoute)
+                .as("there must be no dedicated route targeting /internal/**")
+                .isFalse();
+    }
+
     private Route findRoute(String id) {
         List<Route> routes = routeLocator.getRoutes().collectList().block();
         return routes.stream()

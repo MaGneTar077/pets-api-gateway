@@ -43,6 +43,11 @@ public class FallbackController {
         return buildFallback("Notification service");
     }
 
+    @RequestMapping("/ia")
+    public ResponseEntity<Map<String, Object>> iaFallback() {
+        return buildFallback("AI service");
+    }
+
     private ResponseEntity<Map<String, Object>> buildFallback(String serviceName) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("timestamp", Instant.now().toString());
