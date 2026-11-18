@@ -28,7 +28,7 @@ All runtime config lives in `src/main/resources/application.yaml` and is overrid
 - `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` / `REDIS_SSL` — backs the rate limiter.
 - `FRONTEND_URLS` — comma-separated list of allowed CORS origins (each trimmed; see `config/CorsConfig.java`). Falls back to the single-origin `FRONTEND_URL` if unset, and then to `http://localhost:8100,http://localhost:4200` (Ionic app + clinics web) for local dev.
 - `PORT` — gateway listen port (default 8090); also used as the fallback-route target host.
-- `*_SERVICE_URL` — one per downstream service (`USER_SERVICE_URL`, `PET_SERVICE_URL`, `VETERINARY_SERVICE_URL`, `MEDICAL_SERVICE_URL`, `CALENDAR_SERVICE_URL`, `NOTIFICATION_SERVICE_URL`), each defaulting to a `localhost` port for local dev.
+- `*_SERVICE_URL` — one per downstream service (`USER_SERVICE_URL`, `PET_SERVICE_URL`, `VETERINARY_SERVICE_URL`, `MEDICAL_SERVICE_URL`, `CALENDAR_SERVICE_URL`, `NOTIFICATION_SERVICE_URL`, `IA_SERVICE_URL`), each defaulting to a `localhost` port for local dev.
 
 ## Architecture
 
@@ -37,9 +37,11 @@ All runtime config lives in `src/main/resources/application.yaml` and is overrid
 Routes are declared config-first (no Java `RouteLocator`). Each downstream service gets one or more route entries matching on `Path` predicates. Two route "shapes" exist:
 
 - **Public routes** (`user-register`, `user-auth`): rate-limited only, no JWT filter — used for registration/login endpoints under `/api/user/register` and `/api/auth/**`.
-- **Protected routes** (`user-service`, `pet-service`, `veterinary-service`, `medical-pet-service`, `calendar-service`, `notification-service`): add the custom `JwtAuthFilter` before rate limiting, gating everything else (`/api/pets/**`, `/api/veterinary/**`, `/api/visits/**`, `/api/weight/**`, `/api/treatments/**`, `/api/lab/**`, `/api/medications/**`, `/api/surgery/**`, `/api/vaccines/**`, `/api/calendar-events/**`, `/api/notifications/**`, remaining `/api/user/**`).
+- **Protected routes** (`user-service`, `pet-service`, `veterinary-service`, `medical-pet-service`, `calendar-service`, `notification-service`, `ia-service`): add the custom `JwtAuthFilter` before rate limiting, gating everything else (`/api/pets/**`, `/api/veterinary/**`, `/api/visits/**`, `/api/weight/**`, `/api/treatments/**`, `/api/lab/**`, `/api/medications/**`, `/api/surgery/**`, `/api/vaccines/**`, `/api/calendar-events/**`, `/api/notifications/**`, `/api/ai/**`, remaining `/api/user/**`).
 
-Most routes use `RewritePath=/api/(?<segment>.*), /${segment}` to strip the `/api` prefix before forwarding (the medical and calendar services receive the full path unchanged — check this when adding new routes to those services). `veterinary-service` is the one exception among the RewritePath-using group: it deliberately has **no** `RewritePath`, because that downstream service's controllers are mapped under `/api/veterinary/**` (prefix included) rather than `/veterinary/**`. Don't add one back without checking Veterinary's actual controller mappings first.
+Most routes use `RewritePath=/api/(?<segment>.*), /${segment}` to strip the `/api` prefix before forwarding (the medical and calendar services receive the full path unchanged — check this when adding new routes to those services). `veterinary-service` and `ia-service` are the exceptions among the RewritePath-using group: they deliberately have **no** `RewritePath`, because those downstream services' controllers are mapped under `/api/veterinary/**` / `/api/ai/**` (prefix included) rather than `/veterinary/**` / `/ai/**`. Don't add one back without checking the downstream service's actual controller mappings first.
+
+`ia-service` also deliberately has **no** route for `/api/ai/internal/**` (or anything under `/internal`): that path is service-to-service only (Veterinary calls it with an internal API key) and must stay unreachable from outside the cluster. Don't add a route for it.
 
 Every protected/public route also wires a `CircuitBreaker` (Resilience4j) pointing at a `forward:/fallback/<service>` URI, and those fallback paths are themselves declared as routes pointing back at the gateway's own port so the forward resolves. New downstream service → add both the real route and a matching `fallback-<service>` route, plus a `resilience4j.circuitbreaker.instances.<name>` / `timelimiter.instances.<name>` entry.
 

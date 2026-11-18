@@ -166,6 +166,32 @@ spring:
                     name: notification-service
                     fallbackUri: forward:/fallback/notification
 
+            # ── IA SERVICE — rutas protegidas ─────────
+            # Sin RewritePath: igual que Veterinary, el ai-service expone
+            # sus controllers en /api/ai/** con el prefijo incluido.
+            # NO se enruta /api/ai/internal/** (ni nada bajo /internal): esa
+            # parte es servicio a servicio (Veterinary la llama con una API
+            # key interna) y no debe quedar accesible desde fuera.
+            - id: ia-service
+              uri: ${IA_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/ai/**
+              filters:
+                # 1/3 en vez de 20/40: cada turno de chat gasta 2-3 llamadas a
+                # Gemini y el free tier es ~20/min. Con el límite estándar por
+                # usuario, un solo cliente agota la cuota diaria del servicio.
+                - name: JwtAuthFilter
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 1
+                    redis-rate-limiter.burstCapacity: 3
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@userKeyResolver}"
+                - name: CircuitBreaker
+                  args:
+                    name: ia-service
+                    fallbackUri: forward:/fallback/ia
+
             # ── FALLBACK ──────────────────────────────
             - id: fallback-user
               uri: http://localhost:${PORT:8090}
@@ -202,6 +228,12 @@ spring:
               predicates:
                 - Path=/fallback/notification
               filters: [ ]
+
+            - id: fallback-ia
+              uri: http://localhost:${PORT:8090}
+              predicates:
+                - Path=/fallback/ia
+              filters: []
 
 resilience4j:
   circuitbreaker:
@@ -243,6 +275,16 @@ resilience4j:
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 3
         automatic-transition-from-open-to-half-open-enabled: true
+      ia-service:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        # 70 en vez de 50: Gemini devuelve 503 en ráfagas por saturación.
+        # Con 50 el circuito se abre seguido y corta todo el asistente por
+        # un problema transitorio de un tercero.
+        failure-rate-threshold: 70
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
   timelimiter:
     instances:
       user-service:
@@ -258,6 +300,12 @@ resilience4j:
         timeout-duration: 5s
       notification-service:
         timeout-duration: 5s
+      ia-service:
+        # 70s: el chat puede tardar ~40s en el peor caso (reintentos de
+        # Gemini + fallback de modelo) y el análisis de documentos de
+        # verificación hasta 50s. Con 5s se corta aunque el servicio
+        # responda bien.
+        timeout-duration: 70s
 
 server:
   port: ${PORT:8090}
