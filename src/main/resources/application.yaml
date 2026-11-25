@@ -116,7 +116,7 @@ spring:
             - id: medical-pet-service
               uri: ${MEDICAL_SERVICE_URL:http://localhost:3000}
               predicates:
-                - Path=/api/visits/**, /api/weight/**, /api/treatments/**, /api/lab/**, /api/medications/**, /api/surgery/**, /api/vaccines/**
+                - Path=/api/visits/**, /api/weight/**, /api/treatments/**, /api/lab/**, /api/medications/**, /api/surgery/**, /api/vaccines/**, /api/allergies/**, /api/dewormings/**, /api/documents/**
               filters:
                 - name: JwtAuthFilter
                 - name: RequestRateLimiter
