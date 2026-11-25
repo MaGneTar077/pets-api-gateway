@@ -131,10 +131,14 @@ spring:
                     fallbackUri: forward:/fallback/medical
 
             # ── CALENDAR SERVICE — rutas protegidas ───
+            # CALENDAR_SERVICE_URL es solo el host (sin /api al final): Calendar
+            # sirve sus rutas bajo /api, por eso no hay RewritePath aquí.
+            # /internal/jobs/appointments/reminders (Cloud Scheduler) NO se
+            # enruta a propósito: no debe quedar accesible desde fuera.
             - id: calendar-service
               uri: ${CALENDAR_SERVICE_URL:http://localhost:3001}
               predicates:
-                - Path=/api/calendar-events/**
+                - Path=/api/calendar-events/**, /api/veterinaries/**, /api/me/appointments/**
               filters:
                 - name: JwtAuthFilter
                 - name: RequestRateLimiter
