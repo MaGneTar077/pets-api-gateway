@@ -84,6 +84,21 @@ class RouteConfigTest {
                 .isFalse();
     }
 
+    @Test
+    void everyRouteHasDedupeResponseHeaderDefaultFilter() {
+        // Default-filters apply to all routes; checked here on a couple of them to
+        // confirm it's actually wired, since otherwise a downstream service's own
+        // Access-Control-Allow-Origin/-Credentials would leak through duplicated.
+        List<Route> routes = routeLocator.getRoutes().collectList().block();
+        for (String id : List.of("user-register", "medical-pet-service", "calendar-service")) {
+            Route route = routes.stream().filter(r -> r.getId().equals(id)).findFirst()
+                    .orElseThrow(() -> new AssertionError("Route not found: " + id));
+            assertThat(route.getFilters().stream().anyMatch(f -> f.toString().contains("DedupeResponseHeader")))
+                    .as("route %s must carry the DedupeResponseHeader default-filter", id)
+                    .isTrue();
+        }
+    }
+
     private Route findRoute(String id) {
         List<Route> routes = routeLocator.getRoutes().collectList().block();
         return routes.stream()

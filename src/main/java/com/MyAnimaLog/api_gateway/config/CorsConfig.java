@@ -12,21 +12,23 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Builds the global CORS policy from a comma-separated origin list ({@code frontend.urls}),
- * trimming each entry so a stray space from copy-pasting an origin doesn't silently break it.
- * Replaces the Spring Cloud Gateway YAML {@code globalcors} block, which only supported a
- * single origin.
+ * Builds the single, global CORS policy from a comma-separated origin list
+ * ({@code cors.allowed-origins}), trimming each entry so a stray space from
+ * copy-pasting an origin doesn't silently break it. This is the only CORS
+ * configuration in the gateway (no YAML {@code globalcors}, no duplicate setup).
+ * We use Bearer tokens, not cookies, so credentials are never allowed and the
+ * wildcard origin is never accepted even if someone puts "*" in the env var.
  */
 @Configuration
 public class CorsConfig {
 
     @Bean
-    public CorsWebFilter corsWebFilter(@Value("${frontend.urls}") String frontendUrls) {
+    public CorsWebFilter corsWebFilter(@Value("${cors.allowed-origins}") String allowedOrigins) {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(parseOrigins(frontendUrls));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
+        configuration.setAllowedOrigins(parseOrigins(allowedOrigins));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+        configuration.setAllowCredentials(false);
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -34,10 +36,11 @@ public class CorsConfig {
         return new CorsWebFilter(source);
     }
 
-    static List<String> parseOrigins(String frontendUrls) {
-        return Arrays.stream(frontendUrls.split(","))
+    static List<String> parseOrigins(String allowedOrigins) {
+        return Arrays.stream(allowedOrigins.split(","))
                 .map(String::trim)
                 .filter(StringUtils::hasText)
+                .filter(origin -> !CorsConfiguration.ALL.equals(origin))
                 .distinct()
                 .toList();
     }
