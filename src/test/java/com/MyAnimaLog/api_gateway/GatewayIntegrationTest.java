@@ -20,13 +20,15 @@ class GatewayIntegrationTest {
 
     private static final String ALLOWED_ORIGIN = "https://allowed.example.com";
     private static final String DISALLOWED_ORIGIN = "https://not-allowed.example.com";
+    private static final String DEPLOYED_FRONTEND_ORIGIN = "https://project-ea0d4de8-cedf-4542-8fa.web.app";
 
     @Autowired
     private WebTestClient webTestClient;
 
     @DynamicPropertySource
     static void overrideProperties(DynamicPropertyRegistry registry) {
-        registry.add("CORS_ALLOWED_ORIGINS", () -> ALLOWED_ORIGIN);
+        // Trailing slash and stray spaces on purpose: must still normalize and match.
+        registry.add("CORS_ALLOWED_ORIGINS", () -> " " + ALLOWED_ORIGIN + "/ , " + DEPLOYED_FRONTEND_ORIGIN + " ");
     }
 
     @Test
@@ -37,6 +39,18 @@ class GatewayIntegrationTest {
                 .exchange()
                 .expectStatus().isOk()
                 .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, ALLOWED_ORIGIN);
+    }
+
+    @Test
+    void preflightFromDeployedFrontend_withRealRequestHeaders_passes() {
+        webTestClient.options().uri("/api/user/register")
+                .header(HttpHeaders.ORIGIN, DEPLOYED_FRONTEND_ORIGIN)
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS,
+                        "authorization,content-type,x-requested-with,cache-control")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, DEPLOYED_FRONTEND_ORIGIN);
     }
 
     @Test
