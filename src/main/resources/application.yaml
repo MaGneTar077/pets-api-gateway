@@ -17,6 +17,14 @@ spring:
     gateway:
       server:
         webflux:
+          default-filters:
+            # Algunos servicios downstream mandan su propio Access-Control-*;
+            # con RETAIN_FIRST se queda el que puso nuestro CorsWebFilter y la
+            # respuesta final nunca lleva dos valores para el mismo header.
+            - name: DedupeResponseHeader
+              args:
+                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials
+                strategy: RETAIN_FIRST
           routes:
             # ── USER SERVICE — rutas públicas ─────────
             - id: user-register
@@ -116,7 +124,7 @@ spring:
             - id: medical-pet-service
               uri: ${MEDICAL_SERVICE_URL:http://localhost:3000}
               predicates:
-                - Path=/api/visits/**, /api/weight/**, /api/treatments/**, /api/lab/**, /api/medications/**, /api/surgery/**, /api/vaccines/**
+                - Path=/api/visits/**, /api/weight/**, /api/treatments/**, /api/lab/**, /api/medications/**, /api/surgery/**, /api/vaccines/**, /api/allergies/**, /api/dewormings/**, /api/documents/**
               filters:
                 - name: JwtAuthFilter
                 - name: RequestRateLimiter
@@ -131,10 +139,14 @@ spring:
                     fallbackUri: forward:/fallback/medical
 
             # ── CALENDAR SERVICE — rutas protegidas ───
+            # CALENDAR_SERVICE_URL es solo el host (sin /api al final): Calendar
+            # sirve sus rutas bajo /api, por eso no hay RewritePath aquí.
+            # /internal/jobs/appointments/reminders (Cloud Scheduler) NO se
+            # enruta a propósito: no debe quedar accesible desde fuera.
             - id: calendar-service
               uri: ${CALENDAR_SERVICE_URL:http://localhost:3001}
               predicates:
-                - Path=/api/calendar-events/**
+                - Path=/api/calendar-events/**, /api/veterinaries/**, /api/me/appointments/**
               filters:
                 - name: JwtAuthFilter
                 - name: RequestRateLimiter
@@ -310,10 +322,9 @@ resilience4j:
 server:
   port: ${PORT:8090}
 
-# Comma-separated list of allowed CORS origins. Falls back to the legacy
-# single-origin FRONTEND_URL if FRONTEND_URLS isn't set. See CorsConfig.
-frontend:
-  urls: ${FRONTEND_URLS:${FRONTEND_URL:http://localhost:8100,http://localhost:4200}}
+# Comma-separated list of allowed CORS origins (trimmed, never "*"). See CorsConfig.
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8100,http://localhost:4200}
 
 jwt:
   secret: ${JWT_SECRET:}
